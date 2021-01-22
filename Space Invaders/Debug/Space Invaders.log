@@ -1,0 +1,3 @@
+﻿  main.cpp
+D:\Fiverr\Order #1\Space Invaders\Space Invaders\main.cpp(101,12): warning C4244: 'argument': conversion from 'time_t' to 'unsigned int', possible loss of data
+  Space Invaders.vcxproj -> D:\Fiverr\Order #1\Space Invaders\Debug\Space Invaders.exe
