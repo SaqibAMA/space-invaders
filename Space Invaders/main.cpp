@@ -48,13 +48,150 @@ const int screenWidth = 80;
 int board[screenHeight][screenWidth] = { 0 };
 
 
-unsigned int spacePosX = 45;
+unsigned int spacePosX = 50;
 unsigned int spacePosY = 20;
 
 unsigned int currentLevel = 1;
 unsigned int planeLife = 10;
 unsigned int playerScore = 0;
 
+unsigned int giftTaken = 0;					// Has the gift been accepted?
+unsigned int orgTime = 0;					// What is this variable?
+unsigned int bulletDuration = 0;			// What is this variable?
+
+
+int randomNumber() {
+
+	// This function generates a random number
+	// for different functionality in code.
+
+	// This generates the random number
+	// with regard to the screen height.
+
+
+	srand((unsigned)time(0));
+	int i;
+	i = (rand() % (screenHeight - 1));
+	if (i < 25)
+		i = i + 40;
+	return i;
+
+
+}
+
+void createGift() {
+	
+
+	// This function generates a random spot using the randomNumber() function
+	// and then places the gift on that spot.
+
+	// There is validation that we are not placing the gift at a random spot.
+
+
+	int random = NULL;						// Generating a random number.
+
+
+	bool found = false;						// Flag to detect
+
+
+
+	while (!found) {
+
+		random = randomNumber();			// Generating a random number.
+		found = true;						// Assuming that the row is good enough to place the gift.
+		
+		for (int i = 0; i < screenHeight; i++) {
+			
+			// This checks if the entire column is empty or not.
+
+			if ((board[i][random] != BLANK && board[i][random] != SPACESHIP)
+				&& board[i][random + 1] != BLANK && board[i][random + 1] != SPACESHIP) {
+
+				found = false; 
+			
+			}
+		
+		}
+
+	}
+
+
+	// Placing the gift on the board.
+
+	board[0][random] = GIFT;
+	board[0][random + 1] = GIFT;
+	board[1][random] = GIFT;
+	board[1][random + 1] = GIFT;
+
+
+}
+
+char* getSystemTime() {
+	
+	// This is the standard function that gives us the system
+	// time. This is useful in timing the entire game.
+
+	time_t my_time = time(NULL);
+	return ctime(&my_time);
+
+
+}
+
+int convertToMin(char* arr) {
+	
+	// This takes the system time that has been returned by the
+	// getSystemTime function and converts it into minutes.
+
+	int num1 = (int)arr[14] - 48;
+	int num2 = (int)arr[15] - 48;
+	int time = (num1 * 10) + num2;
+
+	return time;
+}
+
+int calculateMin() {
+	
+	// This function gets the current minute from
+	// your system time.
+
+	char* temp = getSystemTime();
+	return convertToMin(temp);
+}
+
+int newNum(int a) {
+
+	// This is a helper function that helps
+	// in gift time calculation.
+
+	if (a + 15 >= 60) {
+		return 15 - (60 - a);
+	}
+	else {
+		return a + 15;
+	}
+
+}
+
+int convertToSec(char* arr) {
+
+	// This function takes the output from
+	// getSystemTime function and converts it into seconds.
+
+	int num1 = (int)arr[17] - 48;
+	int num2 = (int)arr[18] - 48;
+	int time = (num1 * 10) + num2;
+
+	return time;
+}
+
+int calculateSec() {
+	
+	// This function calculates the number of seconds using
+	// the helper function.
+
+	char* temp = getSystemTime();
+	return convertToSec(temp);
+}
 
 void printSpaceShip(int clear = 0) {
 
@@ -68,29 +205,19 @@ void printSpaceShip(int clear = 0) {
 
 	board[spacePosY][spacePosX + 2] = !clear;
 
+	for (int i = 1; i < 4; i++) {
 
-	board[spacePosY + 1][spacePosX + 1] = !clear;
-	board[spacePosY + 1][spacePosX + 2] = !clear;
-	board[spacePosY + 1][spacePosX + 3] = !clear;
+		board[spacePosY + 1][spacePosX + i] = !clear;
+		board[spacePosY + 4][spacePosX + i] = !clear;
 
+	}
 
-	board[spacePosY + 2][spacePosX + 0] = !clear;
-	board[spacePosY + 2][spacePosX + 1] = !clear;
-	board[spacePosY + 2][spacePosX + 2] = !clear;
-	board[spacePosY + 2][spacePosX + 3] = !clear;
-	board[spacePosY + 2][spacePosX + 4] = !clear;
+	for (int i = 0; i < 5; i++) {
 
+		board[spacePosY + 2][spacePosX + i] = !clear;
+		board[spacePosY + 3][spacePosX + i] = !clear;
 
-	board[spacePosY + 3][spacePosX + 0] = !clear;
-	board[spacePosY + 3][spacePosX + 1] = !clear;
-	board[spacePosY + 3][spacePosX + 2] = !clear;
-	board[spacePosY + 3][spacePosX + 3] = !clear;
-	board[spacePosY + 3][spacePosX + 4] = !clear;
-
-
-	board[spacePosY + 4][spacePosX + 1] = !clear;
-	board[spacePosY + 4][spacePosX + 2] = !clear;
-	board[spacePosY + 4][spacePosX + 3] = !clear;
+	}
 
 
 
@@ -177,10 +304,12 @@ void printBoard() {
 
 
 	// Printing the health bar.
-	for (int i = 0; i < planeLife; i++) {
+	for (int i = 0; i < planeLife -1; i++) {
 		gotoxy(98 + i, 2);
 		cout << char(219);
 	}
+	gotoxy(98 + planeLife -1, 2);
+	cout << " ";
 
 	// Resetting back to white.
 	SetConsoleTextAttribute(h, 15);
@@ -222,6 +351,17 @@ void fireBullet() {
 			// Adding the bullet.
 			board[spacePosY - 1][spacePosX + 2] = BULLET;
 
+			
+			// If the gift has been taken, double the fire.
+			if (giftTaken == 1) {
+
+				if (spacePosY + 4 < screenWidth) {
+					board[spacePosY - 1][spacePosX + 4] = BULLET;
+				}
+
+			}
+
+
 		}
 	}
 
@@ -241,7 +381,7 @@ void updateScreen() {
 			// as not to be updated.
 			if (doNotUpdate[i][j] == true) continue;
 
-			// If this is an enemy bullet?
+			// If this is a bullet?
 			if (board[i][j] == BULLET) {
 
 				// If we are within bounds of the board.
@@ -272,8 +412,77 @@ void updateScreen() {
 					}
 
 				}
+				else {
+
+					// Erasing the bullet if it has reached
+					// the end.
+					board[i][j] = BLANK;
+				
+				}
 
 			}
+
+			// Is the cell a gift?
+			if (board[i][j] == GIFT && board[i][j + 1] == GIFT) {
+
+				// Is the gift colliding with spaceship at any point?
+				if (
+					
+					(board[i + 3][j] == SPACESHIP
+					|| board[i + 3][j + 1] == SPACESHIP)
+					
+					||
+					
+					(board[i + 2][j] == SPACESHIP
+					|| board[i + 2][j + 1] == SPACESHIP)
+					
+					) {
+
+
+					// Setting the giftTaken flag to ON.
+					giftTaken = 1;
+					bulletDuration = calculateSec();
+
+					// Removing the gift from
+					// the place.
+					board[i][j] = BLANK;
+					board[i][j + 1] = BLANK;
+					board[i + 1][j] = BLANK;
+					board[i + 1][j + 1] = BLANK;
+				
+				
+				}
+				else {
+
+					if (i + 3 < screenHeight) {
+
+						// Move the gift to a position below.
+
+						board[i][j] = BLANK;
+						board[i][j + 1] = BLANK;
+						board[i + 3][j] = GIFT;
+						board[i + 3][j + 1] = GIFT;
+						doNotUpdate[i + 3][j] = true;
+						doNotUpdate[i + 3][j + 1] = true;
+					
+					}
+					else {
+
+						// Remove the gift if it has reached the end of the board.
+
+						board[i][j] = BLANK;
+						board[i][j + 1] = BLANK;
+						board[i][j] = BLANK;
+						board[i + 1][j + 1] = BLANK;                        
+
+					}
+
+
+				}
+
+
+			}
+			
 
 		}
 
@@ -281,12 +490,44 @@ void updateScreen() {
 
 }
 
+
+void gameOver() {
+
+	// This function prints the game over message.
+
+	// Setting the color to black with white background.
+	SetConsoleTextAttribute(h, 0 | BACKGROUND_BLUE | BACKGROUND_GREEN | BACKGROUND_RED | BACKGROUND_INTENSITY);
+
+
+	// Filling the screen with white color.
+	for (int i = 0; i < screenHeight; i++) {
+
+		for (int j = 0; j < screenWidth; j++) {
+
+			gotoxy(j, i);
+			cout << " ";
+
+		}
+
+	}
+
+	gotoxy(screenWidth / 2 - 5, screenHeight / 2 - 1);
+	cout << "GAME OVER!";
+	gotoxy(0, screenHeight + 1);
+
+
+	// Resetting the screen to white on black.
+	SetConsoleTextAttribute(h, 15);
+
+
+}
+
+
 // Holds the main game functionality.
 
 void startGame() {
 
-
-	printSpaceShip();										// Printing the spaceship initially.
+	bool sendGift = true;
 
 	while (true) {
 
@@ -327,17 +568,65 @@ void startGame() {
 				spacePosY++;
 
 		}
-		
+
 		if (GetAsyncKeyState(VK_SPACE) & 0x20000) {
 
 			fireBullet();
 
 		}
+		
 
 		updateScreen();											// This function handles all the movement of enemies, bullets, etc.
 
-		Sleep(5);												// Delay function.	
-	
+
+		// Upper level functionality.
+		// Level > 1
+
+		if (currentLevel > 1) {
+
+			if (sendGift) {
+				createGift();
+				orgTime = calculateMin();
+				sendGift = false;
+			}
+
+			if (!sendGift) {
+
+				int _time = calculateMin();
+				if (_time - orgTime == 1) {
+
+					sendGift = true;
+
+				}
+				else if (orgTime == 59 && _time == 0) {
+
+					sendGift = true;
+
+				}
+
+			}
+
+			if (giftTaken == 1) {
+
+				int _time = calculateSec();
+				if (newNum(bulletDuration) < _time)
+					giftTaken = 0;
+
+			}
+		
+		}
+
+		Sleep(20 - (currentLevel * 5));								// Delay function.	
+
+																	// Checking if the game has ended?
+		if (planeLife <= 0) {
+
+			gameOver();
+			return;
+
+		}
+
+
 	}
 
 }
