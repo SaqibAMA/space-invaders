@@ -48,16 +48,29 @@ const int screenWidth = 80;
 int board[screenHeight][screenWidth] = { 0 };
 
 
-unsigned int spacePosX = 50;
-unsigned int spacePosY = 20;
+unsigned int spacePosX = 50;				// Keeps the spaceship's X coordinate.
+unsigned int spacePosY = 20;				// Keeps the spaceship's Y coordinate.
 
 unsigned int currentLevel = 1;
-unsigned int planeLife = 10;
-unsigned int playerScore = 0;
+int planeLife = 10;							// Health of the player.
+int playerScore = 0;						// Score of the player.
 
 unsigned int giftTaken = 0;					// Has the gift been accepted?
-unsigned int orgTime = 0;					// What is this variable?
-unsigned int bulletDuration = 0;			// What is this variable?
+unsigned int orgTime = 0;					// This keeps the original time of the gift.
+unsigned int bulletDuration = 0;			// This keeps the time for double bullets.
+
+
+// Total 3 enemies at a time
+// to keep xy-position of all enemies
+// 500(out of scope) indicates enemy is not appeared yet
+unsigned int enemiesPos[3][2] = {
+									{500, 500},
+									{500, 500},
+									{500, 500}
+								};
+
+
+
 
 
 int randomNumber() {
@@ -303,13 +316,13 @@ void printBoard() {
 	SetConsoleTextAttribute(h, 9);
 
 
+	gotoxy(98, 2);
+	cout << "          ";
 	// Printing the health bar.
 	for (int i = 0; i < planeLife -1; i++) {
 		gotoxy(98 + i, 2);
 		cout << char(219);
 	}
-	gotoxy(98 + planeLife -1, 2);
-	cout << " ";
 
 	// Resetting back to white.
 	SetConsoleTextAttribute(h, 15);
@@ -327,6 +340,12 @@ void printBoard() {
 		cout << char(223);
 	}
 
+	// Displaying instructions
+	gotoxy(90, 4);
+	cout << "Press S to save!";
+	gotoxy(90, 5);
+	cout << "Press L to load!";
+
 
 }
 
@@ -339,10 +358,15 @@ void fireBullet() {
 
 
 			// Killing the enemy.
-			board[spacePosX - 1][spacePosX + 2] = BLANK;
+			// board[spacePosX - 1][spacePosX + 2] = BLANK;
 		
 			// Updating the score.
-			playerScore++;
+			if (giftTaken == 1) {
+				playerScore += 3;
+			}
+			else {
+				playerScore++;
+			}
 
 			
 		}
@@ -364,6 +388,28 @@ void fireBullet() {
 
 		}
 	}
+
+}
+
+void printAnEnemy(unsigned int x, unsigned int y, int draw = 3) {
+
+	// This function allows to draw or clear an enemy from a specific
+	// position.
+	// draw == 0  --> Clear an enemy.
+	// draw == 3  --> Draw an enemy.
+
+
+	// If the coordinates are out of range, then don't execute the function.
+	if (x >= screenWidth - 1 || y >= screenHeight - 1) return;
+
+	board[y - 1][x - 1] = draw;
+	board[y + 1][x - 1] = draw;
+
+	board[y][x] = draw;
+
+	board[y - 1][x + 1] = draw;
+	board[y + 1][x + 1] = draw;
+
 
 }
 
@@ -390,11 +436,29 @@ void updateScreen() {
 					// If the next position is enemy?
 					if (board[i - 1][j] == ENEMY) {
 
-						// Delete that enemy.
-						board[i - 1][j] = BLANK;
+						//// Delete that enemy.
+						//board[i - 1][j] = BLANK;
 
-						// Update the score.
-						playerScore++;
+						// to get index number of enemey to be deleted
+						int ind = (j + 2) / 26;
+
+						// Killing the enemy.
+						printAnEnemy(enemiesPos[ind][0], enemiesPos[ind][1], 0);
+						enemiesPos[ind][0] = 500;
+						enemiesPos[ind][1] = 500;
+
+						// Updating the score.
+						if (giftTaken == 1) {
+							playerScore += 3;
+						}
+						else {
+							playerScore++;
+						}
+
+					}
+					else if (board[i - 1][j] == ENEMY_BULLET) {
+
+						board[i - 1][j] = board[i][j] = BLANK;
 
 					}
 					else {
@@ -420,6 +484,46 @@ void updateScreen() {
 				
 				}
 
+			}
+
+			// If this is an enemy bullet?
+			if (board[i][j] == ENEMY_BULLET) {
+
+				// If we are within bounds of the board.
+				if (i < screenHeight - 1)
+				{
+					// If the next position is spaceship?
+					if (board[i + 1][j] == SPACESHIP) {
+
+						// Update the score.
+						planeLife--;
+
+					}
+					else if (board[i + 1][j] == BULLET) {
+					
+						board[i][j] = board[i + 1][j] = BLANK;
+					
+					}
+					else {
+
+						// Clear previous position.
+						board[i][j] = BLANK;
+
+						// Move the enemy bullet to next position.
+						board[i + 1][j] = ENEMY_BULLET;
+
+						// This index has been updated,
+						// do not update it in the next iteration.
+						doNotUpdate[i + 1][j] = true;
+
+					}
+
+				}
+				else {
+
+					board[i][j] = BLANK;
+
+				}
 			}
 
 			// Is the cell a gift?
@@ -490,7 +594,6 @@ void updateScreen() {
 
 }
 
-
 void gameOver() {
 
 	// This function prints the game over message.
@@ -522,6 +625,287 @@ void gameOver() {
 
 }
 
+void randomPosGenerator(unsigned int& x, unsigned int& y, int start, int end) {
+	
+	
+	// This generates a random X and Y coordinate within the range
+	// of the screen.
+
+	// The variables have & sign so that the value is changed outside
+	// the function as well.
+
+	srand( (unsigned) time(0));
+
+	x = (start + 1 + (rand() % (end - 2)));
+	y = 4;
+
+}
+
+void generateEnemy(int enemyNum, bool randomPlaces = true) {
+
+	// This function generates a new enemy.
+
+	unsigned int start = 26 * enemyNum;
+	srand( (unsigned) time(0));
+
+	if (randomPlaces) {
+		randomPosGenerator(enemiesPos[enemyNum][0], enemiesPos[enemyNum][1], start, 26);
+	}
+	else {
+
+		int enemiesX[3] = { 25, 40, 55 };
+		int enemiesY[3] = { 1, 1, 1 };
+
+		if (enemyNum == 0) {
+		
+			enemiesPos[0][0] = enemiesX[0];
+			enemiesPos[0][1] = enemiesY[0];
+
+		}
+		else if (enemyNum == 1) {
+
+			enemiesPos[1][0] = enemiesX[1];
+			enemiesPos[1][1] = enemiesY[1];
+
+		}
+		else if (enemyNum == 2) {
+
+			enemiesPos[2][0] = enemiesX[2];
+			enemiesPos[2][1] = enemiesY[2];
+
+		}
+
+
+	}
+
+}
+
+void generateAllEnemies() {
+
+	// This function creates all 3 enemies.
+
+	// Get random positions of all the three enemies
+	for (int i = 0; i < 3; ++i) {
+	
+		// Create an enemy
+		generateEnemy(i);
+	
+	}
+
+
+	// Print enemies on the screen
+	for (int i = 0; i < 3; ++i)
+	{
+
+		// Print an enemy.
+		printAnEnemy(enemiesPos[i][0], enemiesPos[i][1]);
+
+	}
+
+}
+
+bool isEnemyCollide(unsigned int x, unsigned int y) {
+
+	// This function checks if there is a collision between
+	// the enemy and the spaceship.
+
+	if (x >= screenWidth - 2 || y >= screenHeight - 2) return false;
+
+	return (
+		board[y - 1][x - 2] == SPACESHIP ||
+		board[y - 1][x + 2] == SPACESHIP ||
+		board[y + 1][x] == SPACESHIP ||
+		board[y + 1][x - 2] == SPACESHIP ||
+		board[y + 1][x + 2] == SPACESHIP ||
+		board[y + 2][x - 1] == SPACESHIP ||
+		board[y + 2][x - 1] == SPACESHIP
+		);
+}
+
+void controlEnemiesMovement() {
+
+	for (unsigned int i = 0; i < 3; ++i) {
+
+		if (enemiesPos[i][1] >= screenHeight - 1) {
+			// Clearing the enemy from previous position.
+			printAnEnemy(enemiesPos[i][0], enemiesPos[i][1], 0);
+
+			enemiesPos[i][0] = 500;
+			enemiesPos[i][1] = 500;
+		}
+
+		else {
+
+
+			// check collision with spaceship
+			if (isEnemyCollide(enemiesPos[i][0], enemiesPos[i][1])) {
+
+				// Clearing enemy.
+				printAnEnemy(enemiesPos[i][0], enemiesPos[i][1], 0);
+				enemiesPos[i][0] = 500;
+				enemiesPos[i][1] = 500;
+
+
+				planeLife--;
+			}
+
+			else {
+				// clear an enemy
+				printAnEnemy(enemiesPos[i][0], enemiesPos[i][1], 0);
+
+				// move enemy down
+				enemiesPos[i][1]++;
+
+				// print an enemy
+				printAnEnemy(enemiesPos[i][0], enemiesPos[i][1], 3);
+			}
+		}
+	}
+}
+
+void enemyFireBullet(unsigned int x, unsigned int y) {
+
+	// Handling the bullet firing by the enemies.
+
+	if (y >= screenHeight - 1) return;
+
+	// If there is spaceship ahead?
+	if (board[y + 1][x] == SPACESHIP) {
+		// Updating the score.
+		planeLife--;
+	}
+	else {
+		// Adding the bullet.
+		board[y + 1][x] = ENEMY_BULLET;
+
+	}
+}
+
+bool allEnemiesDown() {
+
+	// This function checks if all of the enemies have been downed
+	// or not.
+	
+	bool allDown = true;
+
+	for (int i = 0; i < 3; i++) {
+
+		if (enemiesPos[i][0] != 500) {
+			
+			allDown = false;
+		
+		}
+
+	}
+
+	return allDown;
+
+}
+
+
+void saveGame() {
+
+	// This function deals with all of the game saving functionality.
+
+	ofstream fout;
+	fout.open("game.txt");
+
+
+	// Saving the board
+	for (int i = 0; i < screenHeight; i++) {
+
+		for (int j = 0; j < screenWidth; j++) {
+			
+			fout << board[i][j] << " ";
+
+		}
+
+		fout << endl;
+
+	}
+
+	// Saving the health.
+	fout << planeLife << endl;
+
+	// Saving player score.
+	fout << playerScore << endl;
+
+	// Saving current level.
+	fout << currentLevel << endl;
+
+	// Saving spaceship position
+	fout << spacePosX << " " << spacePosY << endl;
+
+
+	// Saving metrics.
+	fout << giftTaken << " " << orgTime << " " << bulletDuration << endl;
+
+	// Saving enemy positions.
+	for (int i = 0; i < 3; i++)
+		fout << enemiesPos[i][0] << " " << enemiesPos[i][1] << endl;
+
+
+	// Closing the file.
+	fout.close();
+
+
+}
+
+void loadGame() {
+
+	ifstream fin;
+	fin.open("game.txt");
+
+	if (fin) {
+
+
+		// Saving the board
+		for (int i = 0; i < screenHeight; i++) {
+
+			for (int j = 0; j < screenWidth; j++) {
+
+				fin >> board[i][j];
+
+			}
+
+		}
+
+		// Saving the health.
+		fin >> planeLife;
+
+		// Saving player score.
+		fin >> playerScore;
+
+		// Saving current level.
+		fin >> currentLevel;
+
+		// Saving spaceship position
+		fin >> spacePosX; fin >> spacePosY;
+
+
+		// Saving metrics.
+		fin >> giftTaken; fin >> orgTime; fin >> bulletDuration;
+
+		// Saving enemy positions.
+		for (int i = 0; i < 3; i++) {
+			fin >> enemiesPos[i][0]; fin >> enemiesPos[i][1];
+		}
+
+
+
+	}
+	else {
+
+		gotoxy(90, 7);
+		cout << "No such file!";
+		Sleep(200);
+
+	}
+
+	fin.close();
+
+}
+
 
 // Holds the main game functionality.
 
@@ -529,11 +913,62 @@ void startGame() {
 
 	bool sendGift = true;
 
+	int enemyFIringPos[3] = { 3, 3, 3 };					// Keep record of firing position of each enemy.
+	generateAllEnemies();
+
 	while (true) {
 
 
 		printSpaceShip();									// Printing the spaceship after every turn.
 		printBoard();										// Prints the board array on the screen.
+
+		if (currentLevel <= 2) {
+		
+			// Making enemies fire continuously.
+			for (int i = 0; i < 3; i++) {
+
+				// If enemy was removed
+				if (enemiesPos[i][0] == 500) {
+
+					enemyFIringPos[i] = 3;			// Resetting positon.
+					generateEnemy(i);				// Generating a new enemy.
+
+				}
+
+				enemyFireBullet(enemiesPos[i][0], enemiesPos[i][1] + enemyFIringPos[i]++);
+			}
+
+			controlEnemiesMovement();
+
+		
+		}
+		else {
+
+
+			// Only initiate the re-generation if all of the enemies have been downed.
+			if (allEnemiesDown()) {
+
+				// Making enemies fire continuously.
+				for (int i = 0; i < 3; i++) {
+
+					// If enemy was removed
+
+					enemyFIringPos[i] = 3;			// Resetting positon.
+					generateEnemy(i, false);		// Generating a new enemy.
+
+
+				}
+			
+			}
+
+			for (int i = 0; i < 3; i++)
+				enemyFireBullet(enemiesPos[i][0], enemiesPos[i][1] + enemyFIringPos[i]++);
+
+
+			controlEnemiesMovement();
+
+
+		}
 
 
 		if (GetAsyncKeyState(VK_RIGHT) & 0x27000) {			// checking if right key has been pressed.
@@ -572,6 +1007,27 @@ void startGame() {
 		if (GetAsyncKeyState(VK_SPACE) & 0x20000) {
 
 			fireBullet();
+
+		}
+
+
+		// Saving game
+		if (GetAsyncKeyState(0x53) & 0x53000) {
+
+			saveGame();
+			gotoxy(90, 7);
+			cout << "Game Saved!";
+			Sleep(200);
+			gotoxy(90, 7);
+			cout << "            ";
+
+
+		}
+
+		// Loading the game
+		if (GetAsyncKeyState(0x4C) & 0x4C000) {
+
+			loadGame();
 
 		}
 		
@@ -616,7 +1072,33 @@ void startGame() {
 		
 		}
 
-		Sleep(20 - (currentLevel * 5));								// Delay function.	
+		if (currentLevel <= 2) {
+			Sleep(10);													// Delay function.	
+		}
+		else {
+			Sleep(5);
+		}
+
+		// Changing levels based on certain criteria.
+		if (playerScore >= 10 && currentLevel == 1) {
+			
+			currentLevel++;
+			playerScore = 0;
+
+		}
+		else if (playerScore >= 20 && currentLevel == 2) {
+
+			currentLevel++;
+			playerScore = 0;
+
+		}
+		else if (playerScore >= 20 && currentLevel == 3) {
+
+			gameOver();
+			return;
+
+		}
+
 
 																	// Checking if the game has ended?
 		if (planeLife <= 0) {
